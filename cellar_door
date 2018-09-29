@@ -1,0 +1,138 @@
+#!/usr/bin/python3
+import PIL.Image
+import argparse
+import os
+import glob
+from sys import exit, argv
+from PIL.ExifTags import TAGS
+
+support = ['.jpg', '.jpeg', '.JPG', '.JPEG']
+__ver__ = 0.2
+__author__ = "Plutonium"
+__thanks__ = [ 'Dark Hole' ]
+
+stack = []
+def get_metadata(img):
+    if not os.access(img, os.R_OK):
+        return False
+    image = PIL.Image.open(img)
+    data = image._getexif()
+    ret = list()
+    try:
+        for key in data.keys():
+            ret.append(key)
+            ret.append(data[key])
+    except AttributeError:
+        ret = list()
+    ret.append(image.size)
+    ret.append(image.format)
+    ret.append(image.mode)
+    return ret
+
+#welcome to the rice fields, motherfucker
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-f', '--file', required=False, help='file')
+    parser.add_argument(
+        '-d', '--dir', required=False, help='dir to search and research files')
+    parser.add_argument('-i', '--info', required=False, default=False,
+                        action="store_true", dest='info', help="info about programm")
+    args = parser.parse_args()
+    if args.info != False:
+        print("ver: " + str(__ver__))
+        print("author: " + __author__)
+        print("supported photo formats: " + str(support))
+        exit(0)
+    if len(argv) < 2:
+        print('[-]nothing to do!')
+        exit(0)
+    files = list()
+    global stack
+    if args.dir != None:
+        if args.dir[:-1] != '/':
+            args.dir += '/'
+        i = 0
+        while i < len(support):
+            a = []
+            a = glob.glob(args.dir + '*' + support[i])
+            files += a
+            b =  0
+            while b <= len(a):
+                stack.append(support[i])
+                b = b + 1
+            i = i + 1
+        #add here another while if there are more types than in support
+    else:
+        ext = os.path.splitext(args.file)[1]
+        files.append(args.file)
+        stack.append(ext[:-4])
+    return files, stack
+
+def type_photo(files):
+    try:
+        data = get_metadata(files)
+    except AttributeError:
+        print('[-] error getting metadata at file:' + files)
+        return
+    if data == False:
+        print('[-] error opening file:' + files)
+    print(files)
+    print('mode:' + str(data.pop()))
+    print('format:' + str(data.pop()))
+    print('resolution:' + str(data.pop()))
+    if data == None or len(data) == 0:
+        print('[-] no metadata in photo:' + files)
+    else:
+        print('[*] metadata:')
+        try:
+            while data != None:
+                a = data.pop()
+                tag = TAGS[data.pop()]
+                print(tag + ' : ' + str(a))
+        except:
+            return
+    return
+    
+#I love the smell of napalm in the morning.
+def is_rarjpeg(fil):
+    f = open(fil, 'rb')
+    buff = f.read()
+    f.close()
+    if (len(buff) - buff.find(b'\xff\xd9') - 2  == 0):
+        return False
+    else:
+        return True
+
+def get_rarjpeg(fil):
+    f = open(fil, 'rb')
+    buff = f.read()
+    f.close()
+    i = buff.find(b'\xff\xf9')
+    w = open(fil + '.cellar_door', 'wb')
+    w.write(buff[i + 2:])
+    w.close()
+    
+# Let's go. In and out. Twenty minute adventure   
+def main():
+    file, stack = parse_args()
+    i = 0
+    s = 0
+    stack.reverse()
+    while s <= len(stack):
+        file_type = stack.pop()
+        type_photo(file[s])
+        print('[*] all metadata have been printed')
+        if is_rarjpeg(file[s]):
+            print('[*] found rarjpeg!')
+            get_rarjpeg(file[s])
+            print('[+] done writing rarjpeg-dump. filename: ' + file[s] + '.cellar_door')
+        else:
+            print('[*] rarjpeg not found!')
+        s = s + 1
+        if s  == len(file):
+            break
+    print('DONE')
+    exit(0)
+
+if __name__ == "__main__":
+    main()
